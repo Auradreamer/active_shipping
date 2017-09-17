@@ -458,9 +458,7 @@ module ActiveShipping
             end
 
             if options[:international]
-              unless options[:return]
-                build_location_node(xml, 'SoldTo', options[:sold_to] || destination, options)
-              end
+              build_location_node(xml, 'SoldTo', options[:sold_to] || destination, options)
 
               if origin.country_code(:alpha2) == 'US' && ['CA', 'PR'].include?(destination.country_code(:alpha2))
                 # Required for shipments from the US to Puerto Rico or Canada
@@ -585,6 +583,8 @@ module ActiveShipping
           xml.InvoiceDate(options[:invoice_date] || Date.today.strftime('%Y%m%d'))
           xml.ReasonForExport(options[:reason_for_export] || 'SALE')
           xml.CurrencyCode(options[:currency_code] || 'USD')
+          xml.DeclarationStatement(options[:declaration_statement]) if options[:declaration_statement]
+          xml.InvoiceNumber(options[:invoice_number]) if options[:invoice_number]
 
           if options[:terms_of_shipment]
             xml.TermsOfShipment(options[:terms_of_shipment])
@@ -594,7 +594,7 @@ module ActiveShipping
             xml.Product do |xml|
               xml.Description(package.options[:description])
               xml.CommodityCode(package.options[:commodity_code])
-              xml.OriginCountryCode(origin.country_code(:alpha2))
+              xml.OriginCountryCode(package.options[:country_origin] || origin.country_code(:alpha2))
               xml.Unit do |xml|
                 xml.Value(package.value / (package.options[:item_count] || 1))
                 xml.Number((package.options[:item_count] || 1))
@@ -705,16 +705,6 @@ module ActiveShipping
 
         xml.PackagingType do
           xml.Code('02')
-        end
-
-        xml.Dimensions do
-          xml.UnitOfMeasurement do
-            xml.Code(options[:imperial] ? 'IN' : 'CM')
-          end
-          [:length, :width, :height].each do |axis|
-            value = ((options[:imperial] ? package.inches(axis) : package.cm(axis)).to_f * 1000).round / 1000.0 # 3 decimals
-            xml.public_send(axis.to_s.capitalize, [value, 0.1].max)
-          end
         end
 
         xml.PackageWeight do
